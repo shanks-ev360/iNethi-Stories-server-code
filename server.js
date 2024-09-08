@@ -41,8 +41,8 @@ app.get("/categories", async (req, res) => {
     const categories = await Category.find();
     console.log("Categories from MongoDB:", categories); // categories
     res.json(categories);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 });
 
