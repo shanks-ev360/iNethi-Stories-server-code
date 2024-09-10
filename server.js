@@ -22,6 +22,7 @@ const categorySchema = new mongoose.Schema({
 });
 
 // Story Schema and Model
+// This is how a story object must be structured
 const storySchema = new mongoose.Schema({
   category: String,
   title: String,
@@ -36,6 +37,8 @@ const Category = mongoose.model("Category", categorySchema);
 const Story = mongoose.model("Story", storySchema);
 
 // Routes
+
+//Fetch the categories from MongoDB
 app.get("/categories", async (req, res) => {
   try {
     const categories = await Category.find();
@@ -46,14 +49,14 @@ app.get("/categories", async (req, res) => {
   }
 });
 
+//Fetch stories that are in a category
+//Essentially filter stories by a specific category
 app.get("/stories/:category", async (req, res) => {
   const { category } = req.params;
-  //console.log(`Received category parameter: ${category}`);
+
   try {
-    //console.log(`Fetching stories for category: ${decodedCategory}`);
     const allStories = await Story.find().where("category").equals(category);
 
-    //console.log("Fetched stories:", allStories);
     res.json(allStories);
   } catch (error) {
     console.error("Error fetching stories:", error);
@@ -61,15 +64,17 @@ app.get("/stories/:category", async (req, res) => {
   }
 });
 
+//used to fetch stories based on an input query from the user.
+//Matching is done by comparing the user input to story titles
 app.get("/stories", async (req, res) => {
-  //console.log("HERE");
   const { search } = req.query;
   try {
-    //console.log(title);
+    //Using title of a story, MongoDB uses a regular expression. User input is the regex and is comapred to titles.
+    //'i' stands for case-insensitive, so user input can be matched regardless of what case they use.
     const results = await Story.find({
       title: { $regex: search, $options: "i" },
     });
-    //console.log(results);
+
     res.json(results);
   } catch (error) {
     console.error("Error fetching search results:", error);
@@ -77,6 +82,8 @@ app.get("/stories", async (req, res) => {
   }
 });
 
+//Fetch all the stories in a catefory to be downloaded.
+//This route is used in conjunctiion with /stories/:id/download.
 app.get("/stories/:category/downloadall", async (req, res) => {
   const { category } = req.params;
   try {
@@ -88,11 +95,15 @@ app.get("/stories/:category/downloadall", async (req, res) => {
   }
 });
 
+//Downlaod story by ID
+//Allows for downloading the file as a HTML file
 app.get("/stories/:id/download", async (req, res) => {
   const { id } = req.params;
   try {
     const story = await Story.findById(id);
 
+    //Content-Disposition - used to determine how to handle this response.
+    //This will tell receiving device to handle response as a downloadable file (HTML file)
     res.set({
       "Content-Disposition": `attachment; filename="${story.title}.html"`,
       "Content-Type": "text/html",
@@ -105,8 +116,9 @@ app.get("/stories/:id/download", async (req, res) => {
   }
 });
 
+//Increment the view count of a story
 app.post("/stories/:id/view", async (req, res) => {
-  //Increment the views property on a story (how many views the story has)
+  // (how many views the story has)
   const { id } = req.params;
   try {
     const story = await Story.findByIdAndUpdate(
@@ -120,19 +132,17 @@ app.post("/stories/:id/view", async (req, res) => {
   }
 });
 
+// Increment the downloads property for story (how many times the story has been downloaded)
 app.post("/stories/:id/downloads", async (req, res) => {
-  // Increment the downloads property for story (how many times the story has been downloaded)
   const { id } = req.params;
-  // console.log(
-  //   `Received request to increment download count for story ID: ${id}`
-  // );
+
   try {
     const story = await Story.findByIdAndUpdate(
       id,
       { $inc: { downloads: 1 } },
       { new: true }
     );
-    //console.log(`Updated story: ${story}`);
+
     res.json(story);
   } catch (error) {
     console.error("Could not increase number of downloads", error);
@@ -140,6 +150,7 @@ app.post("/stories/:id/downloads", async (req, res) => {
   }
 });
 
+//Increase the number of likes a story has
 app.post("/stories/:id/like", async (req, res) => {
   const { id } = req.params;
   try {
@@ -155,6 +166,7 @@ app.post("/stories/:id/like", async (req, res) => {
   }
 });
 
+//Decrease the number of likes a story has
 app.post("/stories/:id/unlike", async (req, res) => {
   const { id } = req.params;
   try {
@@ -170,9 +182,10 @@ app.post("/stories/:id/unlike", async (req, res) => {
   }
 });
 
+//USed to check connection status to the server.
+//Server is hsoted by UCT with an associated website domain
 app.get("/healthcheck", (req, res) => {
   res.status(200).send("Server is up and running");
-  //console.log(res.status(200));
 });
 
 // Start the server
