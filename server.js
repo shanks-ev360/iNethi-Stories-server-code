@@ -1,9 +1,13 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const multer = require("multer");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
 
 app.use(cors({ origin: "*" }));
 app.use(express.json());
@@ -38,7 +42,7 @@ const Story = mongoose.model("Story", storySchema);
 
 // Routes
 
-//Fetch the categories from MongoDB
+//Fetch the categories
 app.get("/categories", async (req, res) => {
   try {
     const categories = await Category.find();
@@ -182,7 +186,110 @@ app.post("/stories/:id/unlike", async (req, res) => {
   }
 });
 
-//USed to check connection status to the server.
+// Upload story route
+app.post("/upload", upload.single("file"), async (req, res) => {
+  const { category, title, author, views } = req.body;
+  const fileContent = req.file.buffer.toString("utf-8");
+
+  try {
+    const newStory = new Story({
+      category,
+      title,
+      author,
+      views: parseInt(views, 10),
+      content: fileContent,
+    });
+    await newStory.save();
+    res
+      .status(201)
+      .json({ message: "Story uploaded successfully", story: newStory });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// getting story data like views and downloads based on story name
+app.get("/stories/title/:name", async (req, res) => {
+  const { name } = req.params;
+  try {
+    const story = await Story.findOne({ title: name });
+    if (!story) {
+      return res.status(404).json({ message: "Story not found" });
+    }
+    res.json(story);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// calculation for top categories by views  and downloads
+app.get("/top-categories", async (req, res) => {
+  try {
+    const mostViewed = await Story.aggregate([
+      {
+        $group: {
+          _id: "$category",
+          totalViews: { $sum: "$views" },
+        },
+      },
+      { $sort: { totalViews: -1 } },
+      { $limit: 5 },
+    ]);
+
+    const mostDownloaded = await Story.aggregate([
+      {
+        $group: {
+          _id: "$category",
+          totalDownloads: { $sum: "$downloads" },
+        },
+      },
+      { $sort: { totalDownloads: -1 } },
+      { $limit: 5 },
+    ]);
+
+    res.json({ mostViewed, mostDownloaded });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// sort stories by name, likes, views, downloads
+app.get("/sorted-stories", async (req, res) => {
+  const { sortBy, category } = req.query;
+
+  let sortField;
+  switch (sortBy) {
+    case "0":
+      sortField = "title";
+      break;
+    case "1":
+      sortField = "title";
+      break;
+    case "2":
+      sortField = "likes";
+      break;
+    case "3":
+      sortField = "views";
+      break;
+    case "4":
+      sortField = "downloads";
+      break;
+    default:
+      return res.status(400).json({ message: "Invalid sort option" });
+  }
+  const filteredCategory = category ? { category } : {};
+  try {
+    // added in the -1 to ensure sorting is always descending order
+    const sortedStories = await Story.find(filteredCategory).sort({
+      [sortField]: -1,
+    });
+    res.json(sortedStories);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+//Used to check connection status to the server.
 //Server is hsoted by UCT with an associated website domain
 app.get("/healthcheck", (req, res) => {
   res.status(200).send("Server is up and running");
